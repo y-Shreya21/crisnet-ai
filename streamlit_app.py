@@ -912,7 +912,7 @@ with tab_dash:
             </span>
         </div>
         <div style="display: flex; gap: 18px; align-items: center; flex-wrap: wrap;">
-            <button id="voice_mic_btn" onclick="startVoiceRecognition()" style="height: 48px; width: 48px; border-radius: 50%; background: rgba(255, 75, 75, 0.1); color: #ff4b4b; border: 1px solid rgba(255, 75, 75, 0.35); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; transition: all 0.2s ease; box-shadow: 0 0 10px rgba(255,75,75,0.1);">
+            <button id="voice_mic_btn" onclick="if(window.parent && window.parent.startVoiceRecognition) { window.parent.startVoiceRecognition(); } else if(window.startVoiceRecognition) { window.startVoiceRecognition(); }" style="height: 48px; width: 48px; border-radius: 50%; background: rgba(255, 75, 75, 0.1); color: #ff4b4b; border: 1px solid rgba(255, 75, 75, 0.35); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; transition: all 0.2s ease; box-shadow: 0 0 10px rgba(255,75,75,0.1);">
                 🎙️
             </button>
             <div style="flex: 1; min-width: 200px;">
@@ -936,175 +936,191 @@ with tab_dash:
         50% { transform: scaleY(1.4); }
     }
     </style>
+    """), unsafe_allow_html=True)
+
+    # Hidden script registration component
+    components.html("""
     <script>
-    let silenceTimeout = null;
-    let recognition = null;
-    
-    function startVoiceRecognition() {
-        let activeWindow = window;
-        let SpeechRecognition = activeWindow.SpeechRecognition || activeWindow.webkitSpeechRecognition;
+    (function() {
+        const parentWin = window.parent || window;
+        let silenceTimeout = null;
+        let recognition = null;
         
-        const badge = document.getElementById("voice_status_badge");
-        const statusText = document.getElementById("voice_status_text");
-        const errorText = document.getElementById("voice_error_text");
-        const pulse = document.getElementById("voice_pulse_ring");
-        const btn = document.getElementById("voice_mic_btn");
-        
-        errorText.style.display = "none";
-        
-        if (!SpeechRecognition) {
-            try {
-                if (window.parent) {
-                    activeWindow = window.parent;
-                    SpeechRecognition = activeWindow.SpeechRecognition || activeWindow.webkitSpeechRecognition;
+        parentWin.startVoiceRecognition = function() {
+            let activeWindow = parentWin;
+            let SpeechRecognition = activeWindow.SpeechRecognition || activeWindow.webkitSpeechRecognition;
+            
+            const doc = parentWin.document;
+            const badge = doc.getElementById("voice_status_badge");
+            const statusText = doc.getElementById("voice_status_text");
+            const errorText = doc.getElementById("voice_error_text");
+            const pulse = doc.getElementById("voice_pulse_ring");
+            const btn = doc.getElementById("voice_mic_btn");
+            
+            if (errorText) errorText.style.display = "none";
+            
+            if (!SpeechRecognition) {
+                if (badge) {
+                    badge.innerHTML = "Unsupported";
+                    badge.style.color = "#ff4b4b";
+                    badge.style.background = "rgba(255,75,75,0.1)";
                 }
-            } catch (e) {
-                console.log("Could not access parent SpeechRecognition.");
+                if (statusText) statusText.innerHTML = "Speech recognition is unsupported on this browser. Try Google Chrome or Safari.";
+                return;
             }
-        }
-        
-        if (!SpeechRecognition) {
-            badge.innerHTML = "Unsupported";
-            badge.style.color = "#ff4b4b";
-            badge.style.background = "rgba(255,75,75,0.1)";
-            statusText.innerHTML = "Speech recognition is unsupported on this browser. Try Google Chrome or Safari.";
-            return;
-        }
-        
-        try {
-            recognition = new SpeechRecognition();
-            recognition.lang = 'en-US';
-            recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
             
-            recognition.onstart = function() {
-                badge.innerHTML = "Listening...";
-                badge.style.color = "#4299e1";
-                badge.style.background = "rgba(66,153,225,0.15)";
-                statusText.innerHTML = "Speak location query into microphone...";
-                pulse.style.display = "flex";
-                btn.style.background = "rgba(255, 75, 75, 0.25)";
-                btn.style.boxShadow = "0 0 15px rgba(255,75,75,0.4)";
+            try {
+                recognition = new SpeechRecognition();
+                recognition.lang = 'en-US';
+                recognition.interimResults = false;
+                recognition.maxAlternatives = 1;
                 
-                if (silenceTimeout) clearTimeout(silenceTimeout);
-                silenceTimeout = setTimeout(() => {
-                    recognition.stop();
-                    badge.innerHTML = "Timeout";
-                    badge.style.color = "#ecc94b";
-                    statusText.innerHTML = "Silence timeout. No vocal query detected.";
-                    pulse.style.display = "none";
-                    btn.style.background = "rgba(255, 75, 75, 0.1)";
-                    btn.style.boxShadow = "none";
-                }, 7000);
-            };
-            
-            recognition.onspeechstart = function() {
-                clearTimeout(silenceTimeout);
-                badge.innerHTML = "Recognizing...";
-                badge.style.color = "#ecc94b";
-                statusText.innerHTML = "Decoding vocal frequencies...";
-            };
-            
-            recognition.onresult = function(event) {
-                clearTimeout(silenceTimeout);
-                const transcript = event.results[0][0].transcript;
-                console.log("Transcribed speech: " + transcript);
-                
-                badge.innerHTML = "Processing...";
-                badge.style.color = "#48bb78";
-                statusText.innerHTML = "Transcribed target: '" + transcript + "'. Initializing routing...";
-                
-                let doc = document;
-                try {
-                    if (window.parent && window.parent.document) {
-                        doc = window.parent.document;
+                recognition.onstart = function() {
+                    if (badge) {
+                        badge.innerHTML = "Listening...";
+                        badge.style.color = "#4299e1";
+                        badge.style.background = "rgba(66,153,225,0.15)";
                     }
-                } catch (e) {
-                    console.log("Bypassing parent doc access.");
-                }
-                
-                const inputs = doc.querySelectorAll('input');
-                let targetInput = null;
-                for (let inp of inputs) {
-                    if (inp.placeholder && inp.placeholder.includes("Search Target")) {
-                        targetInput = inp;
-                        break;
+                    if (statusText) statusText.innerHTML = "Speak location query into microphone...";
+                    if (pulse) pulse.style.display = "flex";
+                    if (btn) {
+                        btn.style.background = "rgba(255, 75, 75, 0.25)";
+                        btn.style.boxShadow = "0 0 15px rgba(255,75,75,0.4)";
                     }
-                }
-                if (!targetInput && inputs.length > 0) {
-                    targetInput = inputs[0];
-                }
+                    
+                    if (silenceTimeout) clearTimeout(silenceTimeout);
+                    silenceTimeout = setTimeout(() => {
+                        recognition.stop();
+                        if (badge) {
+                            badge.innerHTML = "Timeout";
+                            badge.style.color = "#ecc94b";
+                        }
+                        if (statusText) statusText.innerHTML = "Silence timeout. No vocal query detected.";
+                        if (pulse) pulse.style.display = "none";
+                        if (btn) {
+                            btn.style.background = "rgba(255, 75, 75, 0.1)";
+                            btn.style.boxShadow = "none";
+                        }
+                    }, 7000);
+                };
                 
-                if (targetInput) {
-                    try {
-                        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-                        if (setter) {
-                            setter.call(targetInput, transcript);
-                        } else {
+                recognition.onspeechstart = function() {
+                    clearTimeout(silenceTimeout);
+                    if (badge) {
+                        badge.innerHTML = "Recognizing...";
+                        badge.style.color = "#ecc94b";
+                    }
+                    if (statusText) statusText.innerHTML = "Decoding vocal frequencies...";
+                };
+                
+                recognition.onresult = function(event) {
+                    clearTimeout(silenceTimeout);
+                    const transcript = event.results[0][0].transcript;
+                    console.log("Transcribed speech: " + transcript);
+                    
+                    if (badge) {
+                        badge.innerHTML = "Processing...";
+                        badge.style.color = "#48bb78";
+                    }
+                    if (statusText) statusText.innerHTML = "Transcribed target: '" + transcript + "'. Initializing routing...";
+                    
+                    const inputs = doc.querySelectorAll('input');
+                    let targetInput = null;
+                    for (let inp of inputs) {
+                        if (inp.placeholder && inp.placeholder.includes("Search Target")) {
+                            targetInput = inp;
+                            break;
+                        }
+                    }
+                    if (!targetInput && inputs.length > 0) {
+                        targetInput = inputs[0];
+                    }
+                    
+                    if (targetInput) {
+                        try {
+                            const setter = parentWin.HTMLInputElement.prototype.value ? Object.getOwnPropertyDescriptor(parentWin.HTMLInputElement.prototype, "value").set : null;
+                            if (setter) {
+                                setter.call(targetInput, transcript);
+                            } else {
+                                targetInput.value = transcript;
+                            }
+                        } catch (err) {
                             targetInput.value = transcript;
                         }
-                    } catch (err) {
-                        targetInput.value = transcript;
+                        targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        
+                        setTimeout(() => {
+                            if (badge) {
+                                badge.innerHTML = "Completed";
+                                badge.style.color = "#48bb78";
+                            }
+                            if (pulse) pulse.style.display = "none";
+                            if (btn) {
+                                btn.style.background = "rgba(255, 75, 75, 0.1)";
+                                btn.style.boxShadow = "none";
+                            }
+                            
+                            const buttons = doc.querySelectorAll('button');
+                            for (let b of buttons) {
+                                if (b.innerText && (b.innerText.includes("Analyze EOC Coordinates") || b.innerText.includes("Analyze EOC"))) {
+                                    b.click();
+                                    break;
+                                }
+                            }
+                        }, 800);
                     }
-                    targetInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    
-                    setTimeout(() => {
-                        badge.innerHTML = "Completed";
-                        badge.style.color = "#48bb78";
-                        pulse.style.display = "none";
+                };
+                
+                recognition.onerror = function(event) {
+                    clearTimeout(silenceTimeout);
+                    if (pulse) pulse.style.display = "none";
+                    if (btn) {
                         btn.style.background = "rgba(255, 75, 75, 0.1)";
                         btn.style.boxShadow = "none";
-                        
-                        const buttons = doc.querySelectorAll('button');
-                        for (let b of buttons) {
-                            if (b.innerText && (b.innerText.includes("Analyze EOC Coordinates") || b.innerText.includes("Analyze EOC"))) {
-                                b.click();
-                                break;
-                            }
-                        }
-                    }, 800);
-                }
-            };
-            
-            recognition.onerror = function(event) {
-                clearTimeout(silenceTimeout);
-                pulse.style.display = "none";
-                btn.style.background = "rgba(255, 75, 75, 0.1)";
-                btn.style.boxShadow = "none";
+                    }
+                    
+                    if (badge) {
+                        badge.innerHTML = "Error";
+                        badge.style.color = "#ff4b4b";
+                        badge.style.background = "rgba(255,75,75,0.15)";
+                    }
+                    
+                    let msg = "Microphone sensor error: " + event.error;
+                    if (event.error === 'not-allowed') {
+                        msg = "Permission Denied. Enable microphone permissions in browser settings.";
+                    } else if (event.error === 'no-speech') {
+                        msg = "No vocal frequency detected. Click mic to retry.";
+                    }
+                    if (errorText) {
+                        errorText.innerHTML = "⚠️ " + msg;
+                        errorText.style.display = "block";
+                    }
+                    if (statusText) statusText.innerHTML = "Sensor pipeline offline. Press microphone to restart.";
+                };
                 
-                badge.innerHTML = "Error";
-                badge.style.color = "#ff4b4b";
-                badge.style.background = "rgba(255,75,75,0.15)";
+                recognition.onend = function() {
+                    clearTimeout(silenceTimeout);
+                    if (pulse) pulse.style.display = "none";
+                    if (btn) {
+                        btn.style.background = "rgba(255, 75, 75, 0.1)";
+                        btn.style.boxShadow = "none";
+                    }
+                };
                 
-                let msg = "Microphone sensor error: " + event.error;
-                if (event.error === 'not-allowed') {
-                    msg = "Permission Denied. Enable microphone permissions in browser settings.";
-                } else if (event.error === 'no-speech') {
-                    msg = "No vocal frequency detected. Click mic to retry.";
+                recognition.start();
+                
+            } catch (err) {
+                if (badge) badge.innerHTML = "Offline";
+                if (statusText) statusText.innerHTML = "Vocal decoder offline. Click mic to restart.";
+                if (errorText) {
+                    errorText.innerHTML = "⚠️ Interface Init Error: " + err.message;
+                    errorText.style.display = "block";
                 }
-                errorText.innerHTML = "⚠️ " + msg;
-                errorText.style.display = "block";
-                statusText.innerHTML = "Sensor pipeline offline. Press microphone to restart.";
-            };
-            
-            recognition.onend = function() {
-                clearTimeout(silenceTimeout);
-                pulse.style.display = "none";
-                btn.style.background = "rgba(255, 75, 75, 0.1)";
-                btn.style.boxShadow = "none";
-            };
-            
-            recognition.start();
-            
-        } catch (err) {
-            badge.innerHTML = "Offline";
-            statusText.innerHTML = "Vocal decoder offline. Click mic to restart.";
-            errorText.innerHTML = "⚠️ Interface Init Error: " + err.message;
-            errorText.style.display = "block";
-        }
-    }
+            }
+        };
+    })();
     </script>
-    """), unsafe_allow_html=True)
+    """, height=0)
 
     # POPULAR SEARCH SUGGESTIONS BAR
     st.markdown("""
