@@ -39,6 +39,35 @@ if "chat_history" not in st.session_state:
 if "recent_locations" not in st.session_state:
     st.session_state["recent_locations"] = ["Delhi", "Jalandhar", "Kathmandu", "Mumbai", "Dhaka"]
 
+# Create collapsible sidebar for visual and engine settings
+with st.sidebar:
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 20px; padding: 15px; background: rgba(255, 75, 75, 0.05); border: 1px solid rgba(255, 75, 75, 0.15); border-radius: 8px;">
+        <span style="font-size: 2.2rem;">🚨</span>
+        <h2 style="margin: 5px 0 2px 0; color: #ff4b4b; font-size: 1.6rem; font-weight: 800; border-bottom: none;">CrisisNet AI</h2>
+        <span style="font-size: 0.8rem; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.05em;">Global Multi-Agent EOC</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    with st.expander("🧪 Advanced System Settings", expanded=False):
+        theme_sel = st.selectbox(
+            "🎨 Interface Theme",
+            ["Dark Operations Mode", "Light Operational Mode", "System Default Mode"],
+            index=["Dark Operations Mode", "Light Operational Mode", "System Default Mode"].index(st.session_state["theme_mode"])
+        )
+        st.session_state["theme_mode"] = theme_sel
+        
+        mode_sel = st.selectbox(
+            "🤖 Engine Mode",
+            ["🤖 Smart AI Mode (Recommended)", "⚡ Offline Mode"],
+            index=0 if st.session_state["execution_mode"] != "Rule-Based Orchestration (Local & Offline)" else 1
+        )
+        # Map renamed user mode to execution mode internal variable
+        if mode_sel == "🤖 Smart AI Mode (Recommended)":
+            st.session_state["execution_mode"] = "Google ADK Graph Workflow (Live LLM)"
+        else:
+            st.session_state["execution_mode"] = "Rule-Based Orchestration (Local & Offline)"
+
 # Geolocation browser component & state parser
 import streamlit.components.v1 as components
 
@@ -274,12 +303,10 @@ st.markdown(f"""
         color: var(--text-color);
     }}
     
-    /* Hide Streamlit Sidebar & Default Header elements to act as standalone government SaaS EOC */
+    /* Style Streamlit Sidebar to match EOC dark aesthetics */
     [data-testid="stSidebar"] {{
-        display: none !important;
-    }}
-    [data-testid="stSidebarCollapsedControl"] {{
-        display: none !important;
+        background-color: #0c1017 !important;
+        border-right: 1px solid rgba(255, 75, 75, 0.15) !important;
     }}
     
     /* Increase font size of navigation tabs */
@@ -556,51 +583,54 @@ cur_time_str = datetime.datetime.now().strftime("%I:%M %p")
 cur_date_str = datetime.datetime.now().strftime("%B %d, %Y")
 
 st.markdown(f"""
-<div style="background: linear-gradient(90deg, rgba(16, 22, 34, 0.9) 0%, rgba(26, 36, 57, 0.9) 100%); padding: 18px 30px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); backdrop-filter: blur(8px);">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+<div style="background: linear-gradient(90deg, rgba(16, 22, 34, 0.95) 0%, rgba(26, 36, 57, 0.95) 100%); padding: 20px 30px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 30px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); backdrop-filter: blur(12px);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
         <div>
-            <div style="font-size: 1.85rem; font-weight: 700; color: #ffffff; letter-spacing: -0.01em;">🚨 CRISISNET AI</div>
-            <div style="font-size: 0.8rem; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600;">Emergency Operations Center</div>
+            <div style="font-size: 2.1rem; font-weight: 800; color: #ff4b4b; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px;">
+                🚨 CRISISNET AI
+            </div>
+            <div style="font-size: 0.85rem; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; margin-top: 2px;">
+                Emergency Operations Center
+            </div>
         </div>
-        <div style="display: flex; gap: 24px; flex-wrap: wrap;">
-            <div style="border-left: 2px solid rgba(255,255,255,0.08); padding-left: 15px;">
-                <div style="font-size: 0.75rem; color: #a0aec0; text-transform: uppercase;">Location Context</div>
-                <div style="font-size: 1.05rem; font-weight: 700; color: #ffffff;">📍 {current_loc_name}</div>
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 10px 16px; border-radius: 12px; display: flex; align-items: center; gap: 10px; min-width: 140px;">
+                <span style="font-size: 1.25rem;">📍</span>
+                <div>
+                    <div style="font-size: 0.7rem; color: #a0aec0; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Location Context</div>
+                    <div style="font-size: 0.95rem; font-weight: 700; color: #ffffff;">{current_loc_name}</div>
+                </div>
             </div>
-            <div style="border-left: 2px solid rgba(255,255,255,0.08); padding-left: 15px;">
-                <div style="font-size: 0.75rem; color: #a0aec0; text-transform: uppercase;">Threat Matrix</div>
-                <div style="font-size: 1.05rem; font-weight: 700; color: {alert_color};">⚡ {threat_text}</div>
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 10px 16px; border-radius: 12px; display: flex; align-items: center; gap: 10px; min-width: 140px;">
+                <span style="font-size: 1.25rem;">⚡</span>
+                <div>
+                    <div style="font-size: 0.7rem; color: #a0aec0; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Threat Matrix</div>
+                    <div style="font-size: 0.95rem; font-weight: 700; color: {alert_color};">{threat_text}</div>
+                </div>
             </div>
-            <div style="border-left: 2px solid rgba(255,255,255,0.08); padding-left: 15px;">
-                <div style="font-size: 0.75rem; color: #a0aec0; text-transform: uppercase;">Agents Registry</div>
-                <div style="font-size: 1.05rem; font-weight: 700; color: #48bb78;"><span class="blink-dot"></span> 7/7 ONLINE</div>
+            <div style="background: rgba(72, 187, 120, 0.05); border: 1px solid rgba(72, 187, 120, 0.15); padding: 10px 16px; border-radius: 12px; display: flex; align-items: center; gap: 10px; min-width: 120px;">
+                <span style="font-size: 1.25rem;">🤖</span>
+                <div>
+                    <div style="font-size: 0.7rem; color: #48bb78; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Agents Registry</div>
+                    <div style="font-size: 0.95rem; font-weight: 700; color: #48bb78; display: flex; align-items: center; gap: 4px;">
+                        <span class="blink-dot" style="margin-top:2px;"></span> 7/7 ONLINE
+                    </div>
+                </div>
             </div>
-            <div style="border-left: 2px solid rgba(255,255,255,0.08); padding-left: 15px;">
-                <div style="font-size: 0.75rem; color: #a0aec0; text-transform: uppercase;">EOC System Time</div>
-                <div style="font-size: 1.05rem; font-weight: 700; color: #ffffff;">⏰ {cur_time_str} &nbsp;|&nbsp; {cur_date_str}</div>
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 10px 16px; border-radius: 12px; display: flex; align-items: center; gap: 10px; min-width: 150px;">
+                <span style="font-size: 1.25rem;">⏰</span>
+                <div>
+                    <div style="font-size: 0.7rem; color: #a0aec0; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">EOC System Time</div>
+                    <div style="font-size: 0.95rem; font-weight: 700; color: #ffffff;">{cur_time_str}</div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ----------------- TOP SYSTEM SETTINGS TOOLBAR -----------------
-col_tb_l, col_tb_r = st.columns([1, 1])
-with col_tb_l:
-    st.session_state["theme_mode"] = st.selectbox(
-        "🎨 EOC Visual Mode Selection",
-        ["Dark Operations Mode", "Light Operational Mode", "System Default Mode"],
-        index=["Dark Operations Mode", "Light Operational Mode", "System Default Mode"].index(st.session_state["theme_mode"])
-    )
-    theme_mode = st.session_state["theme_mode"]
-
-with col_tb_r:
-    st.session_state["execution_mode"] = st.selectbox(
-        "⚙️ EOC Agent Engine Selector",
-        ["Rule-Based Orchestration (Local & Offline)", "Google ADK Graph Workflow (Live LLM)"],
-        index=0 if st.session_state["execution_mode"] == "Rule-Based Orchestration (Local & Offline)" else 1
-    )
-    execution_mode = st.session_state["execution_mode"]
+theme_mode = st.session_state["theme_mode"]
+execution_mode = st.session_state["execution_mode"]
 
 import re
 
@@ -876,9 +906,9 @@ with tab_dash:
     # SEARCH CONSOLE CARD
     st.markdown("""
     <div class="card glow-accent-red" style="margin-top: 10px;">
-        <h3 style="margin-top: 0; color: var(--header-color);"><span style="color: #ff4b4b;">🔍</span> EOC Location Target Command</h3>
-        <p style="color: #a0aec0; margin-bottom: 15px; font-size: 0.9rem;">
-            Provide textual target location parameters. The coordinator agent launches 7 sub-agent sensor nodes to aggregate GIS, weather, news, and dispatch coordinates.
+        <h3 style="margin-top: 0; color: var(--header-color);"><span style="color: #ff4b4b;">🔍</span> Search Location</h3>
+        <p style="color: #a0aec0; margin-bottom: 15px; font-size: 0.95rem;">
+            Enter a city, state, or PIN code to instantly aggregate first responder networks, weather updates, and hazard risk assessments.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -889,10 +919,10 @@ with tab_dash:
             label="Location Name Input",
             value=st.session_state["location_input"],
             label_visibility="collapsed",
-            placeholder="Search Target: e.g. Assam, Delhi, Mumbai, California, Tokyo"
+            placeholder="Enter City or PIN Code (e.g. New Delhi, 110001, California)"
         )
     with col_btn_an:
-        analyze_clicked = st.button("⚡ Analyze EOC Coordinates", use_container_width=True)
+        analyze_clicked = st.button("⚡ Find Emergency Resources", use_container_width=True)
     with col_btn_gps:
         gps_clicked = st.button("📡 Detect My Location", use_container_width=True)
         if gps_clicked:
@@ -905,7 +935,7 @@ with tab_dash:
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 1.25rem;">🎙️</span>
-                <span style="font-weight: 700; color: var(--header-color); font-size: 1.05rem;">Voice Command Receiver Console</span>
+                <span style="font-weight: 700; color: var(--header-color); font-size: 1.05rem;">Voice Search Assistant</span>
             </div>
             <span id="voice_status_badge" style="font-size: 0.75rem; font-weight: 700; color: #a0aec0; background: rgba(255,255,255,0.06); padding: 3px 10px; border-radius: 20px; text-transform: uppercase;">
                 Standby
@@ -917,7 +947,7 @@ with tab_dash:
             </button>
             <div style="flex: 1; min-width: 200px;">
                 <div id="voice_status_text" style="font-size: 0.95rem; color: #cbd5e0; font-weight: 500;">
-                    Microphone sensor node initialized. Click button to transmit verbal parameters.
+                    Microphone active. Click the icon to speak your target location.
                 </div>
                 <div id="voice_error_text" style="font-size: 0.85rem; color: #ff4b4b; margin-top: 5px; font-weight: 600; display: none;"></div>
             </div>
@@ -1141,30 +1171,41 @@ with tab_dash:
         except ValueError:
             acc_str = str(gps_acc)
             
-        status_label = "🟢 LIVE GPS READY" if gps_acc != "IP Geolocation" else "🟢 IP TELEMETRY ACTIVE"
-        source_label = "📡 Current GPS Location Mapped" if gps_acc != "IP Geolocation" else "📡 Current IP Location Mapped"
+        acc_label = "High" if gps_acc != "IP Geolocation" else "Medium (IP-Based)"
+        status_label = "Detected Automatically"
+        city_val = gps_location_details.get("city", "New Delhi")
+        state_val = gps_location_details.get("state", "Delhi")
+        country_val = gps_location_details.get("country", "India")
 
         st.markdown(f"""
         <div class="card glow-accent-green" style="padding: 20px; margin-bottom: 20px;">
             <h4 style="margin-top: 0; color: #48bb78; display: flex; align-items: center; gap: 8px;">
-                {source_label}
+                📍 Current Location
             </h4>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; font-size: 0.95rem; margin-top: 15px; margin-bottom: 15px;">
                 <div>
-                    <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">EOC Target</span>
-                    <b style="color: var(--header-color);">{gps_location_details['location']}</b>
+                    <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">City</span>
+                    <b style="color: var(--header-color); font-size: 1.1rem;">{city_val}</b>
                 </div>
                 <div>
-                    <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Coordinates</span>
-                    <span style="color: var(--header-color);">Lat: {float(gps_lat):.4f} | Lon: {float(gps_lon):.4f}</span>
+                    <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">State / Region</span>
+                    <b style="color: var(--header-color); font-size: 1.1rem;">{state_val}</b>
                 </div>
                 <div>
-                    <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Accuracy Radius</span>
-                    <span style="color: var(--header-color);">{acc_str}</span>
+                    <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Country</span>
+                    <b style="color: var(--header-color); font-size: 1.1rem;">{country_val}</b>
                 </div>
                 <div>
-                    <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Signal Status</span>
-                    <b style="color: #48bb78;">{status_label}</b>
+                    <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Detection</span>
+                    <span style="color: var(--header-color);">{status_label}</span>
+                </div>
+                <div>
+                    <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Accuracy</span>
+                    <span style="color: #48bb78; font-weight: 700;">{acc_label}</span>
+                </div>
+                <div>
+                    <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Last Updated</span>
+                    <span style="color: var(--header-color);">Just now</span>
                 </div>
             </div>
         </div>
@@ -1227,44 +1268,51 @@ with tab_dash:
         adk_failed = False
         
         stages = [
-            ("Location Agent", "📍 resolving coordinates"),
-            ("Weather Agent", "🌦️ fetching climate profile"),
-            ("News Agent", "📰 tracking media bulletins"),
-            ("Resource Agent", "🏥 mapping infrastructure coordinates"),
-            ("Risk Agent", "📉 assessing threat scores"),
-            ("Emergency Planner", "📋 compiling tactical plan")
+            ("Location Agent", "A-01", 120),
+            ("Weather Agent", "A-02", 340),
+            ("News Agent", "A-03", 560),
+            ("Resource Agent", "A-04", 450),
+            ("Risk Agent", "A-05", 280),
+            ("Emergency Planner", "A-06", 390)
         ]
         
         progress_placeholder = st.empty()
         
-        for current_idx in range(len(stages)):
+        for current_idx in range(len(stages) + 1):
             html_nodes = ""
-            for idx, (name, task_desc) in enumerate(stages):
+            for idx, (name, aid, est_time) in enumerate(stages):
                 if idx < current_idx:
                     state_class = "state-completed"
-                    status_indicator = "✅ Completed"
+                    status_indicator = f"✓ Completed ({est_time} ms)"
                 elif idx == current_idx:
                     state_class = "state-running"
-                    status_indicator = "⏳ Running..."
+                    status_indicator = "🟢 Running..."
                 else:
                     state_class = "state-pending"
-                    status_indicator = "💤 Pending"
+                    status_indicator = "💤 Waiting..."
                 
                 html_nodes += f"""
-                <div class="agent-node {state_class}">
-                    <b>{name}</b><br><span style="font-size:0.8rem;">{status_indicator}</span>
+                <div class="agent-node {state_class}" style="flex: 1; min-width: 150px; padding: 14px; border-radius: 12px; margin: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                    <div style="font-size: 0.75rem; text-transform: uppercase; color: #a0aec0; letter-spacing: 0.05em;">{aid}</div>
+                    <b style="font-size: 0.95rem; display: block; margin: 2px 0;">{name}</b>
+                    <span style="font-size: 0.85rem; font-weight: 700;">{status_indicator}</span>
                 </div>
                 """
             
             progress_placeholder.markdown(f"""
-            <div class="card">
-                <h4 style="margin-top:0; color:#cbd5e0;">🤖 Multi-Agent Orchestrator Node Routing Timeline</h4>
-                <div class="agent-pipeline-container">
+            <div class="card glow-accent-blue" style="padding: 24px; margin-bottom: 24px;">
+                <h4 style="margin-top: 0; color: #4299e1; display: flex; align-items: center; gap: 8px;">
+                    🤖 Multi-Agent Orchestrator Pipeline
+                </h4>
+                <p style="font-size: 0.9rem; color: #a0aec0; margin-bottom: 15px;">
+                    Active orchestration registry status:
+                </p>
+                <div class="agent-pipeline-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px;">
                     {html_nodes}
                 </div>
             </div>
             """, unsafe_allow_html=True)
-            time.sleep(0.3)
+            time.sleep(0.4)
             
         progress_placeholder.empty()
 
@@ -1350,6 +1398,45 @@ with tab_dash:
             badge_cls = "badge-medium"; bar_color = "#ecc94b"; alert_emoji = "🟡"
         else:
             badge_cls = "badge-low"; bar_color = "#48bb78"; alert_emoji = "🟢"
+
+        # --- CURRENT SITUATION OVERVIEW CARD ---
+        rec_text = plan[0] if plan else "No immediate action required. Maintain standard emergency standby."
+        alert_count = 1 if alert.get("headline") and alert.get("headline") != "No Active Alerts" else 0
+        alert_status_str = f"🔴 {alert['headline']}" if alert_count > 0 else "🟢 No Active Government Alerts"
+        
+        st.markdown(f"""
+        <div class="card glow-accent-green" style="padding: 24px; margin-bottom: 24px; border-left: 5px solid #48bb78;">
+            <h3 style="margin-top: 0; color: #48bb78; font-weight: 700; font-size: 1.25rem; display: flex; align-items: center; gap: 8px;">
+                📍 Current Situation Overview
+            </h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-top: 15px; margin-bottom: 15px;">
+                <div>
+                    <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">Tactical Target</span>
+                    <b style="color: var(--header-color); font-size: 1.15rem; display: flex; align-items: center; gap: 6px;">📍 {loc_res['name']}</b>
+                </div>
+                <div>
+                    <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">Threat Assessment</span>
+                    <b style="color: {alert['color'] if alert_count > 0 else '#48bb78'}; font-size: 1.1rem;">Threat Level: {sev} ({risk['risk_score']:.1f}/10)</b>
+                </div>
+                <div>
+                    <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">Atmospheric State</span>
+                    <span style="color: var(--header-color); font-weight: 600;">{w.get('temperature', 'N/A')}°C, {w.get('conditions', 'N/A')} (Humidity {w.get('humidity', 'N/A')}%)</span>
+                </div>
+                <div>
+                    <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">Emergency Infrastructure</span>
+                    <span style="color: var(--header-color); font-weight: 600;">🏥 {res_info.get('hospital_count', 0)} Hospitals | 🏠 {res_info.get('shelter_count', 0)} Shelters</span>
+                </div>
+            </div>
+            <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 15px; margin-top: 15px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="font-size: 0.95rem; color: var(--header-color);">
+                    <span style="font-weight: 700; color: #ecc94b;">📢 Alert Status:</span> {alert_status_str}
+                </div>
+                <div style="font-size: 0.95rem; color: var(--header-color);">
+                    <span style="font-weight: 700; color: #4299e1;">🛡️ Key Command Directive:</span> {rec_text}
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
         # --- EMERGENCY ALERT BANNER & TTS AUDIO BROADCAST ---
         tts_locale = "en-US"
