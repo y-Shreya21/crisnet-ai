@@ -1,307 +1,143 @@
 # 🚨 CrisisNet AI
 
 ### Multi-Agent Disaster Response Intelligence System
-
-**Transforming Disaster Data into Actionable Decisions**
-
-CrisisNet AI is a multi-agent disaster response intelligence platform designed to support emergency management teams, government agencies, and humanitarian organizations during natural disasters. The system leverages specialized AI agents to collect, analyze, and synthesize information from multiple sources, enabling faster decision-making and more effective disaster response planning.
-
-Built as part of the Kaggle AI Agents: Intensive Vibe Coding Capstone Project, CrisisNet AI demonstrates how agent-based architectures can improve situational awareness, risk assessment, and emergency coordination during high-impact events such as floods, cyclones, earthquakes, and wildfires.
+**Transforming Fragmented Disaster Data into Actionable Emergency Decisions**
 
 ---
 
-## 🌍 Problem Statement
+CrisisNet AI is an advanced multi-agent disaster response platform designed to assist emergency operations centers, government agencies, and humanitarian groups. By orchestrating specialized, collaborative agents, the system aggregates, verifies, and analyzes real-time weather feeds, disaster headlines, and public infrastructure data to formulate risk threat scores and coordinate tactical action plans.
 
-Natural disasters generate large volumes of fragmented information across weather services, news channels, emergency alerts, geographic information systems, and public reports. Emergency responders often struggle to consolidate this information quickly enough to make informed decisions.
-
-Key challenges include:
-
-* Fragmented disaster intelligence across multiple platforms
-* Delayed response due to manual information gathering
-* Difficulty assessing real-time risk levels
-* Limited visibility into available emergency resources
-* Inefficient coordination during rapidly evolving situations
-
-Traditional systems provide information but rarely transform it into actionable response plans.
+Built as a submission for the **Kaggle AI Agents Capstone Project**, CrisisNet AI showcases the integration of **Google Agent Development Kit (ADK)**, **Model Context Protocol (MCP)**, **OpenStreetMap (OSM) resource intelligence**, and a custom visual analytics **Streamlit dashboard**.
 
 ---
 
-## 💡 Solution
+## 🎯 Key Capabilities & Features
 
-CrisisNet AI functions as a virtual Emergency Operations Center powered by multiple collaborating AI agents.
-
-Instead of relying on a single AI assistant, the platform uses specialized agents responsible for weather monitoring, news intelligence, resource assessment, and risk evaluation. A central Coordinator Agent orchestrates communication between agents and generates a comprehensive disaster response report.
-
-The platform converts scattered disaster-related information into structured intelligence, helping stakeholders make faster and more informed decisions.
+1. **Multi-Agent Orchestration:** Deploys a team of 6 collaborative agents managing Weather, News, Resource location mapping, Risk analysis, and Action plans, overseen by a central Coordinator.
+2. **Google ADK Integration (ADK 2.0):** Agents are fully converted into `google.adk` compatible nodes, enabling seamless agent-to-agent delegation, prompt instructions management, and graph-based `Workflow` execution.
+3. **Model Context Protocol (MCP) Server:** Features a built-in FastMCP server registering tools (`weather_tool`, `news_tool`, `maps_tool`) allowing third-party tools, IDEs (Cursor/VSCode), and LLM clients to fetch live disaster data directly.
+4. **Real-World Resource GIS Discovery:** Integrates with OpenStreetMap via the **Overpass API** to dynamically discover nearby hospitals, fire stations, and shelters within a 10km radius of any target coordinates.
+5. **Robust Security & Safety Guard:** Includes a sanitization and validation layer (`prompt_guard.py` & `validator.py`) to block command injections, path traversals, SQL exploits, and template injection attempts.
+6. **Streamlit Command Center:** A dark-themed, glassmorphic visual dashboard that maps assets dynamically and exports compiled report files.
 
 ---
 
 ## 🏗️ System Architecture
 
-The platform follows a modular multi-agent architecture.
-
-### Coordinator Agent
-
-Responsible for:
-
-* Task orchestration
-* Agent communication
-* Workflow management
-* Response aggregation
-
-### Weather Intelligence Agent
-
-Responsible for:
-
-* Weather monitoring
-* Rainfall analysis
-* Severe weather alerts
-* Environmental risk indicators
-
-### News Intelligence Agent
-
-Responsible for:
-
-* Disaster-related news analysis
-* Situation monitoring
-* Affected area identification
-* Incident summarization
-
-### Resource Planning Agent
-
-Responsible for:
-
-* Shelter identification
-* Hospital availability assessment
-* Emergency resource tracking
-* Infrastructure awareness
-
-### Risk Assessment Agent
-
-Responsible for:
-
-* Severity estimation
-* Disaster impact analysis
-* Risk scoring
-* Priority assessment
-
-### Emergency Planning Agent
-
-Responsible for:
-
-* Response plan generation
-* Action recommendation
-* Resource allocation guidance
-* Decision-support reporting
-
----
-
-## ⚙️ Current Workflow
-
 ```text
-User Query
-    ↓
-Coordinator Agent
-    ↓
- ┌─────────────────┐
- │ Weather Agent   │
- └─────────────────┘
-    ↓
- ┌─────────────────┐
- │ News Agent      │
- └─────────────────┘
-    ↓
- ┌─────────────────┐
- │ Resource Agent  │
- └─────────────────┘
-    ↓
- ┌─────────────────┐
- │ Risk Agent      │
- └─────────────────┘
-    ↓
-Emergency Planning Agent
-    ↓
-Disaster Response Report
+       User Request (Location & Coordinates)
+                       ↓
+         ┌───────────────────────────┐
+         │  Security Validation      │ ← Input Sanitization & Prompt Guard
+         └───────────────────────────┘
+                       ↓
+         ┌───────────────────────────┐
+         │     Coordinator Agent     │ ← Manages execution flow
+         └───────────────────────────┘
+                       ↓
+   ┌───────────────────┼───────────────────┐
+   ↓                   ↓                   ↓
+┌──────────────┐   ┌────────────┐   ┌──────────────┐
+│Weather Agent │   │ News Agent │   │Resource Agent│
+└──────────────┘   └────────────┘   └──────────────┘
+   │                   │                   │
+   │ (Open-Meteo API)  │ (NewsAPI)         │ (OSM / Overpass)
+   └───────────────────┼───────────────────┘
+                       ↓
+         ┌───────────────────────────┐
+         │    Risk Assessment Agent  │ ← Evaluates weather & news indicators
+         └───────────────────────────┘
+                       ↓
+         ┌───────────────────────────┐
+         │ Emergency Planning Agent  │ ← Formulates action protocols
+         └───────────────────────────┘
+                       ↓
+         ┌───────────────────────────┐
+         │   Final Output Verifier   │ ← Validates schema integrity
+         └───────────────────────────┘
+                       ↓
+         Report Compiler & Download / Streamlit Map
 ```
 
 ---
 
-## 🔒 Security Features
-
-The platform incorporates security-focused design principles:
-
-* Input validation
-* Prompt injection protection
-* Controlled tool access
-* Agent isolation
-* Output verification
-
-These safeguards help improve reliability and reduce the risk of unsafe agent behavior.
-
----
-
-## 🧠 Agent Technologies
-
-This project demonstrates several modern AI agent concepts:
-
-* Multi-Agent Systems
-* Agent Orchestration
-* Tool-Augmented Agents
-* Modular Agent Design
-* Secure Agent Architectures
-* Decision-Support Systems
-
-Future versions will integrate:
-
-* Google Agent Development Kit (ADK)
-* Model Context Protocol (MCP)
-* Real-time weather APIs
-* News intelligence services
-* Geographic information systems
-
----
-
-## 🛠️ Technology Stack
-
-### Programming Language
-
-* Python
-
-### AI & Agent Frameworks
-
-* Google ADK (Planned)
-* MCP (Planned)
-
-### Backend
-
-* Python
-* REST APIs
-
-### Frontend
-
-* Streamlit (Planned)
-
-### Data Sources
-
-* Weather APIs
-* News APIs
-* Mapping Services
-
-### Version Control
-
-* Git
-* GitHub
-
----
-
-## 📁 Project Structure
+## 📁 Repository Structure
 
 ```text
 crisisnet-ai/
 │
 ├── Agents/
-│   ├── coordinator.py
-│   ├── weather_agent.py
-│   ├── news_agent.py
-│   ├── resource_agent.py
-│   ├── risk_agent.py
-│   └── emergency_planner.py
+│   ├── coordinator.py         # Main synchronous & ADK orchestrator
+│   ├── adk_agents.py          # Google ADK agent and workflow declarations
+│   ├── weather_agent.py       # Weather data analyzer
+│   ├── news_agent.py          # News headline analyzer
+│   ├── resource_agent.py      # OSM Overpass API intelligence mapping
+│   ├── risk_agent.py          # Safety threat scoring calculator
+│   └── emergency_planner.py   # Tactical recommendation planner
 │
 ├── Security/
-│   ├── validator.py
-│   └── prompt_guard.py
+│   ├── validator.py           # DataType, coordinate limits, & shape validation
+│   └── prompt_guard.py        # Prompt injection & shell injection protection
 │
-├── app.py
-├── requirements.txt
-├── README.md
-└── architecture.png
+├── Tools/
+│   ├── weather_tool.py        # Open-Meteo REST service connection
+│   └── news_tool.py           # NewsAPI REST service connection
+│
+├── tests/
+│   ├── test_agents.py         # Agent behavior and fallback unit tests
+│   └── test_security.py       # Validation and malicious filters tests
+│
+├── app.py                     # Console demo execution
+├── mcp_server.py              # Model Context Protocol (FastMCP) server
+├── streamlit_app.py           # Snowflake/Streamlit Dashboard web client
+├── requirements.txt           # Project dependencies
+├── DEPLOYMENT.md              # Installation and deployment runbook
+├── .env.example               # Config variable templates
+└── README.md                  # Main project overview
 ```
 
 ---
 
-## 🚀 Getting Started
+## ⚡ Quick Start & Execution
 
-Clone the repository:
+For detailed setup, environment keys configuration, and running the FastMCP server, see [DEPLOYMENT.md](file:///Users/shreyayadav/crisenet/crisnet-ai/DEPLOYMENT.md).
 
-```bash
-git clone https://github.com/YOUR_USERNAME/crisisnet-ai.git
-```
-
-Navigate to the project directory:
-
-```bash
-cd crisisnet-ai
-```
-
-Install dependencies:
-
+### 1. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-Run the application:
-
+### 2. Configure keys
 ```bash
-python app.py
+cp .env.example .env
+# Edit .env to add your GOOGLE_API_KEY
+```
+
+### 3. Run the visual dashboard
+```bash
+streamlit run streamlit_app.py
+```
+
+### 4. Run the automated test suite
+```bash
+python3 -m unittest discover -s tests
 ```
 
 ---
 
-## 📊 Sample Output
+## 🏆 Kaggle Capstone Submission Details
 
-```text
-CRISISNET AI DISASTER REPORT
-
-Location: Assam
-
-Risk Level: HIGH
-Risk Score: 8.7/10
-
-Affected Areas:
-• Kamrup
-• Barpeta
-
-Available Resources:
-• Shelters: 12
-• Hospitals: 5
-• Rescue Teams: 8
-
-Recommended Actions:
-1. Open emergency shelters
-2. Deploy rescue teams
-3. Issue evacuation alerts
-4. Stock medical supplies
-5. Monitor weather continuously
-```
-
----
-
-## 🎯 Future Enhancements
-
-* Real-time weather intelligence
-* Live disaster monitoring dashboard
-* Satellite imagery analysis
-* Autonomous response planning
-* Multi-modal disaster detection
-* Google ADK integration
-* MCP-enabled tool ecosystem
-* Streamlit deployment
-
----
-
-## 🏆 Kaggle Capstone Submission
-
-Track: **Agents for Good**
-
-CrisisNet AI demonstrates how collaborative AI agents can assist humanitarian operations by transforming fragmented disaster information into actionable emergency intelligence.
-
-The project showcases the practical application of multi-agent systems, tool-augmented reasoning, secure AI architectures, and real-world decision-support workflows.
+- **Track:** Agents for Good
+- **Mandatory Criteria Met:**
+  - **Multi-Agent System:** 6 agents communicating and delegating tasks.
+  - **Google ADK:** Native integration of Google GenAI SDK and ADK 2.0 Graph Workflow.
+  - **MCP Server:** FastMCP integration exposing tools for IDEs and LLM clients.
+  - **Security Features:** Multi-level sanitization filters and output schema validators.
+  - **Deployability:** Packaged for Streamlit Cloud with offline fallback capabilities.
+  - **Agent Skills / Tool Usage:** Connects dynamically with Weather, News, and OpenStreetMap APIs.
 
 ---
 
 ## 👩‍💻 Author
-
-**Shreya Yadav**
-
-B.Tech Computer Science and Engineering
-Machine Learning Engineer | AI Research Enthusiast
+- **Shreya Yadav**
+- *Machine Learning Engineer | AI Research Enthusiast*
