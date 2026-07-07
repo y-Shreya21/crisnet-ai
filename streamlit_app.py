@@ -833,16 +833,29 @@ with tab_dash:
         </button>
         <script>
         function startVoiceRecognition() {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            let activeWindow = window;
+            let SpeechRecognition = activeWindow.SpeechRecognition || activeWindow.webkitSpeechRecognition;
+            
+            if (!SpeechRecognition) {
+                try {
+                    if (window.parent) {
+                        activeWindow = window.parent;
+                        SpeechRecognition = activeWindow.SpeechRecognition || activeWindow.webkitSpeechRecognition;
+                    }
+                } catch (e) {
+                    console.log("Bypassing parent SpeechRecognition access.");
+                }
+            }
+            
             if (!SpeechRecognition) {
                 alert("Web Speech API is not supported in this browser. Please use Google Chrome or Safari.");
                 return;
             }
+            
             const recognition = new SpeechRecognition();
             recognition.lang = 'en-US';
             recognition.interimResults = false;
             recognition.maxAlternatives = 1;
-            recognition.start();
             
             const btn = document.getElementById("voice_mic_btn");
             btn.innerHTML = "🔴 Listening...";
@@ -851,27 +864,57 @@ with tab_dash:
             
             recognition.onresult = function(event) {
                 const transcript = event.results[0][0].transcript;
-                console.log("EOC Voice Input Transcribed: " + transcript);
+                console.log("Voice transcribed text: " + transcript);
                 
-                // Set text input value in parent DOM
-                const inputs = window.parent.document.querySelectorAll('input[type="text"]');
+                let doc = document;
+                try {
+                    if (window.parent && window.parent.document) {
+                        doc = window.parent.document;
+                    }
+                } catch (e) {
+                    console.log("Bypassing parent doc access.");
+                }
+                
+                // Locate search input element
+                const inputs = doc.querySelectorAll('input');
+                let targetInput = null;
                 for (let inp of inputs) {
                     if (inp.placeholder && inp.placeholder.includes("Search Target")) {
-                        inp.value = transcript;
-                        inp.dispatchEvent(new Event('input', { bubbles: true }));
-                        
-                        // Automatically trigger search button
-                        setTimeout(() => {
-                            const buttons = window.parent.document.querySelectorAll('button');
-                            for (let b of buttons) {
-                                if (b.innerText.includes("Analyze EOC Coordinates")) {
-                                    b.click();
-                                    break;
-                                }
-                            }
-                        }, 500);
+                        targetInput = inp;
                         break;
                     }
+                }
+                
+                if (!targetInput && inputs.length > 0) {
+                    targetInput = inputs[0];
+                }
+                
+                if (targetInput) {
+                    // Set value bypassing React setter override
+                    try {
+                        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                        if (setter) {
+                            setter.call(targetInput, transcript);
+                        } else {
+                            targetInput.value = transcript;
+                        }
+                    } catch (err) {
+                        targetInput.value = transcript;
+                    }
+                    
+                    // Dispatch input event to sync Streamlit React state
+                    targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    
+                    // Automatically click the search button after a small delay
+                    setTimeout(() => {
+                        const buttons = doc.querySelectorAll('button');
+                        for (let b of buttons) {
+                            if (b.innerText && (b.innerText.includes("Analyze EOC Coordinates") || b.innerText.includes("Analyze EOC"))) {
+                                b.click();
+                                break;
+                            }
+                        }
+                    }, 600);
                 }
             };
             
@@ -885,6 +928,14 @@ with tab_dash:
                 btn.innerHTML = "🎙️ Voice Mic";
                 btn.style.background = "rgba(255, 75, 75, 0.1)";
             };
+            
+            try {
+                recognition.start();
+            } catch (err) {
+                console.log("Recognition start failed: " + err);
+                btn.innerHTML = "🎙️ Voice Mic";
+                btn.style.background = "rgba(255, 75, 75, 0.1)";
+            }
         }
         </script>
         """, unsafe_allow_html=True)
