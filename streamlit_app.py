@@ -99,12 +99,31 @@ if detect_gps_trigger:
                 window.location.href = url.toString();
             },
             function(error) {
-                console.log("EOC GPS access blocked: " + error.message);
-                const url = new URL(window.location.href);
-                url.searchParams.set("geo_error", "1");
-                url.searchParams.delete("lat");
-                url.searchParams.delete("lon");
-                window.location.href = url.toString();
+                console.log("EOC GPS access blocked: " + error.message + ". Falling back to client-side IP lookup.");
+                fetch("https://ipapi.co/json/")
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data && !data.error) {
+                            const lat = data.latitude;
+                            const lon = data.longitude;
+                            const url = new URL(window.location.href);
+                            url.searchParams.set("lat", lat);
+                            url.searchParams.set("lon", lon);
+                            url.searchParams.set("acc", "IP Geolocation");
+                            url.searchParams.delete("geo_error");
+                            window.location.href = url.toString();
+                        } else {
+                            throw new Error("Invalid IP response");
+                        }
+                    })
+                    .catch(err => {
+                        console.log("Client-side IP lookup failed: " + err.message);
+                        const url = new URL(window.location.href);
+                        url.searchParams.set("geo_error", "1");
+                        url.searchParams.delete("lat");
+                        url.searchParams.delete("lon");
+                        window.location.href = url.toString();
+                    });
             },
             { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
         );
@@ -120,37 +139,9 @@ geo_error = st.query_params.get("geo_error")
 
 def get_ip_geolocation():
     """
-    Fetches the user's location based on their IP address.
-    Bypasses browser GPS block or non-HTTPS restrictions.
+    Returns standard fallback center of operations.
+    Avoids server-side HTTP requests that trigger 429 blocks on Render.
     """
-    import requests
-    import sys
-    from Tools.retry_helper import execute_with_retry
-    
-    url = "https://ipapi.co/json/"
-    def _fetch():
-        res = requests.get(url, timeout=5)
-        res.raise_for_status()
-        return res
-        
-    try:
-        response = execute_with_retry(_fetch, retries=2, initial_delay=1.0)
-        data = response.json()
-        if "error" not in data:
-            return {
-                "latitude": float(data.get("latitude")),
-                "longitude": float(data.get("longitude")),
-                "city": data.get("city", "Delhi"),
-                "state": data.get("region", "Delhi"),
-                "country": data.get("country_name", "India"),
-                "postal_code": data.get("postal", "110001"),
-                "timezone": data.get("timezone", "Asia/Kolkata"),
-                "district": data.get("city", "Delhi")
-            }
-    except Exception as e:
-        print(f"⚠️ Warning (IP Geolocation): {e}", file=sys.stderr)
-        
-    # Standard fallback center of operations
     return {
         "latitude": 28.7041,
         "longitude": 77.1025,
@@ -1152,7 +1143,7 @@ with tab_dash:
         };
     })();
     </script>
-    """, height=0)
+    """, height=0, scrolling=False)
 
     # POPULAR SEARCH SUGGESTIONS BAR
     st.markdown("""
@@ -1597,7 +1588,7 @@ with tab_dash:
                 height=220,
                 margin=dict(l=30, r=30, t=10, b=10)
             )
-            st.plotly_chart(fig_gauge, use_container_width=True)
+            st.plotly_chart(fig_gauge, use_container_width=True, width="stretch")
 
             # Reasoning Card
             st.markdown(f"""
@@ -1892,7 +1883,7 @@ with tab_map:
                 icon=folium.Icon(color="darkpurple", icon="star")
             ).add_to(m)
             
-        st_folium(m, height=500, use_container_width=True, returned_objects=[])
+        st_folium(m, height=500, returned_objects=[])
 
         if r_list:
             with st.expander("🔍 View Discovered Facility Resource Details"):
@@ -1903,7 +1894,7 @@ with tab_map:
                     "Longitude": item["lon"],
                     "Address": item["address"]
                 } for item in r_list])
-                st.dataframe(map_df, hide_index=True, use_container_width=True)
+                st.dataframe(map_df, hide_index=True)
     else:
         st.markdown("### Interactive Incident Resource Map (Standby Mode)")
         st.markdown("""
@@ -1927,7 +1918,7 @@ with tab_map:
             icon=folium.Icon(color="blue", icon="info-sign")
         ).add_to(m_standby)
         
-        st_folium(m_standby, height=500, use_container_width=True, returned_objects=[])
+        st_folium(m_standby, height=500, returned_objects=[])
 
 # ----------------- TAB 3: RESOURCE INFRASTRUCTURE -----------------
 with tab_res:
@@ -2134,7 +2125,7 @@ with tab_analytics:
             font={'color': plotly_text_color, 'family': "Outfit"},
             height=300
         )
-        st.plotly_chart(fig_risk, use_container_width=True)
+        st.plotly_chart(fig_risk, use_container_width=True, width="stretch")
 
         # Environmental Weather Trends
         forecast_hours = ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"]
@@ -2158,7 +2149,7 @@ with tab_analytics:
             font={'color': plotly_text_color, 'family': "Outfit"},
             height=300
         )
-        st.plotly_chart(fig_weather, use_container_width=True)
+        st.plotly_chart(fig_weather, use_container_width=True, width="stretch")
     else:
         st.info("💡 Please search and analyze a location to render analytics reports.")
 
