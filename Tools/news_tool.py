@@ -1,5 +1,6 @@
 import os
 import requests
+from Tools.retry_helper import execute_with_retry
 
 class NewsToolError(Exception):
     """Exception raised for errors in the News API tool."""
@@ -25,8 +26,12 @@ def get_disaster_news(location: str) -> dict:
         "apiKey": API_KEY
     }
 
-    try:
+    def _fetch():
         response = requests.get(url, params=params, timeout=10)
+        return response
+
+    try:
+        response = execute_with_retry(_fetch, retries=3, initial_delay=1.0)
         data = response.json()
         
         if isinstance(data, dict) and data.get("status") == "error":

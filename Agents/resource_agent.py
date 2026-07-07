@@ -42,10 +42,15 @@ class ResourceAgent:
             "User-Agent": "CrisisNetAI/1.0 (contact@crisisnet.ai; Kaggle Capstone Submission)"
         }
 
+        def _fetch():
+            res = requests.post(url, data={"data": query}, headers=headers, timeout=12)
+            res.raise_for_status()
+            return res
+
         try:
-            # Query real-time Overpass API
-            response = requests.post(url, data={"data": query}, headers=headers, timeout=12)
-            response.raise_for_status()
+            # Query real-time Overpass API with exponential retry
+            from Tools.retry_helper import execute_with_retry
+            response = execute_with_retry(_fetch, retries=3, initial_delay=1.0)
             data = response.json()
             elements = data.get("elements", [])
 

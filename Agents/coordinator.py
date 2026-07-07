@@ -1,5 +1,6 @@
 import os
 import asyncio
+import time
 from Agents.location_agent import LocationAgent
 from Agents.weather_agent import WeatherAgent
 from Agents.news_agent import NewsAgent
@@ -26,21 +27,45 @@ except ImportError:
 class CoordinatorAgent:
     """
     Coordinator Agent that manages input sanitization, input validation,
-    agent execution, output aggregation, and final report verification.
+    concurrent agent execution, output aggregation, and final report verification.
     """
 
     def process(self, location: str, latitude: float = None, longitude: float = None, target_language: str = "en") -> dict:
         """
-        Executes the rule-based heuristic flow of agents synchronously.
-        Resolves text location to coordinates via LocationAgent if not provided explicitly.
+        Synchronous wrapper that executes the asynchronous pipeline.
+        Defensively handles existing running event loops in web servers.
         """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            import nest_asyncio
+            nest_asyncio.apply()
+            return loop.run_until_complete(
+                self.process_async(location, latitude, longitude, target_language)
+            )
+        else:
+            return asyncio.run(
+                self.process_async(location, latitude, longitude, target_language)
+            )
+
+    async def process_async(self, location: str, latitude: float = None, longitude: float = None, target_language: str = "en") -> dict:
+        """
+        Asynchronously orchestrates multi-agent tasks concurrently.
+        Logs latency metrics for execution profiling.
+        """
+        t_start = time.time()
+
         # 1. Input sanitization (Prompt injection and shell command check)
         sanitized_location = sanitize_input(location)
 
         # 2. Coordinate resolution via LocationAgent (Phase 0)
+        t_loc_start = time.time()
         if latitude is None or longitude is None:
             loc_agent = LocationAgent()
-            loc_result = loc_agent.analyze(sanitized_location)
+            loc_result = await asyncio.to_thread(loc_agent.analyze, sanitized_location)
             latitude = loc_result["latitude"]
             longitude = loc_result["longitude"]
             resolved_location = loc_result["location"]
@@ -50,27 +75,42 @@ class CoordinatorAgent:
             resolved_location = sanitized_location
             country = "Unknown Country"
             is_fallback_loc = False
+        t_loc = time.time() - t_loc_start
 
         # 3. Input validation (Type and coordinate boundary checks)
         validate_input(resolved_location, latitude, longitude)
 
-        # 4. Weather Agent Analysis
-        weather = WeatherAgent().analyze(latitude, longitude)
+        # 4. Concurrently run independent Stage 1 agents: Weather, News, Resource
+        async def run_weather():
+            t0 = time.time()
+            res = await asyncio.to_thread(WeatherAgent().analyze, latitude, longitude)
+            return res, time.time() - t0
 
-        # 5. News Agent Analysis
-        news = NewsAgent().analyze(resolved_location)
+        async def run_news():
+            t0 = time.time()
+            res = await asyncio.to_thread(NewsAgent().analyze, resolved_location)
+            return res, time.time() - t0
 
-        # 6. Resource Agent Analysis (OSM Integration using resolved coordinates)
-        resources = ResourceAgent().analyze(resolved_location, latitude, longitude)
+        async def run_resources():
+            t0 = time.time()
+            res = await asyncio.to_thread(ResourceAgent().analyze, resolved_location, latitude, longitude)
+            return res, time.time() - t0
 
-        # 7. Risk Agent Analysis
-        risk = RiskAgent().analyze(weather, news)
+        weather_task = run_weather()
+        news_task = run_news()
+        resources_task = run_resources()
 
-        # 8. Plan Generation
-        plan = EmergencyPlanner().generate_plan(risk)
+        (weather, t_weather), (news, t_news), (resources, t_resources) = await asyncio.gather(
+            weather_task, news_task, resources_task
+        )
 
-        # 9. Dynamic Disaster Type Detection
-        disaster_type = "Flood"  # Default
+        # 5. Risk Agent Analysis (depends on weather & news)
+        t_risk_start = time.time()
+        risk = await asyncio.to_thread(RiskAgent().analyze, weather, news)
+        t_risk = time.time() - t_risk_start
+
+        # 6. Dynamic Disaster Type Detection
+        disaster_type = "Flood"  # Default fallback
         news_headlines_lower = " ".join(news.get("headlines", [])).lower()
         if "earthquake" in news_headlines_lower or "quake" in news_headlines_lower:
             disaster_type = "Earthquake"
@@ -85,16 +125,37 @@ class CoordinatorAgent:
         elif weather.get("wind_speed", 0.0) > 25.0:
             disaster_type = "Cyclone"
 
-        # 10. Emergency Alert Generation
-        alert = AlertAgent().generate_alert(risk["risk_score"], risk["severity"], disaster_type)
+        # 7. Concurrently run independent Stage 2 agents: Planner, Alert, Contacts, Safety
+        async def run_planner():
+            t0 = time.time()
+            res = await asyncio.to_thread(EmergencyPlanner().generate_plan, risk)
+            return res, time.time() - t0
 
-        # 11. Emergency Contact Mapping (includes nearest hospital Haversine resolution)
-        emergency_contacts = EmergencyContactAgent().identify_contacts(
-            resolved_location, latitude, longitude, resources.get("resources", [])
+        async def run_alert():
+            t0 = time.time()
+            res = await asyncio.to_thread(AlertAgent().generate_alert, risk["risk_score"], risk["severity"], disaster_type)
+            return res, time.time() - t0
+
+        async def run_contacts():
+            t0 = time.time()
+            res = await asyncio.to_thread(EmergencyContactAgent().identify_contacts,
+                resolved_location, latitude, longitude, resources.get("resources", [])
+            )
+            return res, time.time() - t0
+
+        async def run_safety():
+            t0 = time.time()
+            res = await asyncio.to_thread(CitizenSafetyAgent().generate_guidance, disaster_type)
+            return res, time.time() - t0
+
+        planner_task = run_planner()
+        alert_task = run_alert()
+        contacts_task = run_contacts()
+        safety_task = run_safety()
+
+        (plan, t_planner), (alert, t_alert), (emergency_contacts, t_contacts), (safety_guidance, t_safety) = await asyncio.gather(
+            planner_task, alert_task, contacts_task, safety_task
         )
-
-        # 12. Citizen Safety Instructions Generation
-        safety_guidance = CitizenSafetyAgent().generate_guidance(disaster_type)
 
         result = {
             "resolved_location": {
@@ -111,15 +172,29 @@ class CoordinatorAgent:
             "plan": plan,
             "alert": alert,
             "emergency_contacts": emergency_contacts,
-            "safety_guidance": safety_guidance
+            "safety_guidance": safety_guidance,
+            "metrics": {
+                "location_time": t_loc,
+                "weather_time": t_weather,
+                "news_time": t_news,
+                "resource_time": t_resources,
+                "risk_time": t_risk,
+                "planner_time": t_planner,
+                "alert_time": t_alert,
+                "contacts_time": t_contacts,
+                "safety_time": t_safety,
+                "total_time": time.time() - t_start
+            }
         }
 
-        # 13. Output validation
+        # 8. Output validation
         validate_output(result)
 
-        # 14. Multilingual Translation
+        # 9. Multilingual Translation
         if target_language and target_language != "en":
-            result = LanguageAgent().translate_report(result, target_language)
+            t_trans_start = time.time()
+            result = await asyncio.to_thread(LanguageAgent().translate_report, result, target_language)
+            result["metrics"]["translation_time"] = time.time() - t_trans_start
 
         return result
 

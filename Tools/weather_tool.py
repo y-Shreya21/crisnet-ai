@@ -1,4 +1,5 @@
 import requests
+from Tools.retry_helper import execute_with_retry
 
 class WeatherToolError(Exception):
     """Exception raised for errors in the Weather API tool."""
@@ -22,12 +23,13 @@ def get_weather(latitude, longitude):
         ]
     }
 
-    try:
+    def _fetch():
         response = requests.get(url, params=params, timeout=10)
-        
-        # Raise HTTPError for bad responses (4xx, 5xx)
         response.raise_for_status()
-        
+        return response
+
+    try:
+        response = execute_with_retry(_fetch, retries=3, initial_delay=1.0)
         data = response.json()
         
         # Check if the API returned an error payload in standard JSON format

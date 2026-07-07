@@ -1,6 +1,7 @@
 import os
 import requests
 from abc import ABC, abstractmethod
+from Tools.retry_helper import execute_with_retry
 
 def get_timezone_for_country(country_name: str) -> str:
     c = country_name.lower()
@@ -82,9 +83,13 @@ class NominatimGeocodingProvider(BaseGeocodingProvider):
             "User-Agent": "CrisisNetAI/1.0 (contact@crisisnet.ai; Kaggle Capstone Submission)"
         }
         
+        def _fetch():
+            res = requests.get(url, params=params, headers=headers, timeout=8)
+            res.raise_for_status()
+            return res
+
         try:
-            response = requests.get(url, params=params, headers=headers, timeout=8)
-            response.raise_for_status()
+            response = execute_with_retry(_fetch, retries=3, initial_delay=1.0)
             results = response.json()
             
             if not results:
@@ -128,9 +133,14 @@ class NominatimGeocodingProvider(BaseGeocodingProvider):
         headers = {
             "User-Agent": "CrisisNetAI/1.0 (contact@crisisnet.ai; Kaggle Capstone Submission)"
         }
+        
+        def _fetch_rev():
+            res = requests.get(url, params=params, headers=headers, timeout=8)
+            res.raise_for_status()
+            return res
+
         try:
-            response = requests.get(url, params=params, headers=headers, timeout=8)
-            response.raise_for_status()
+            response = execute_with_retry(_fetch_rev, retries=3, initial_delay=1.0)
             result = response.json()
             
             if not result or "error" in result:
@@ -174,9 +184,13 @@ class GoogleMapsGeocodingProvider(BaseGeocodingProvider):
             "key": self.api_key
         }
         
+        def _fetch():
+            res = requests.get(url, params=params, timeout=8)
+            res.raise_for_status()
+            return res
+
         try:
-            response = requests.get(url, params=params, timeout=8)
-            response.raise_for_status()
+            response = execute_with_retry(_fetch, retries=3, initial_delay=1.0)
             data = response.json()
             
             if data.get("status") != "OK" or not data.get("results"):
@@ -215,9 +229,14 @@ class GoogleMapsGeocodingProvider(BaseGeocodingProvider):
             "latlng": f"{lat},{lon}",
             "key": self.api_key
         }
+        
+        def _fetch_rev():
+            res = requests.get(url, params=params, timeout=8)
+            res.raise_for_status()
+            return res
+
         try:
-            response = requests.get(url, params=params, timeout=8)
-            response.raise_for_status()
+            response = execute_with_retry(_fetch_rev, retries=3, initial_delay=1.0)
             data = response.json()
             if data.get("status") != "OK" or not data.get("results"):
                 reason = data.get("error_message") or data.get("status") or "Unknown error"

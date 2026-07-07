@@ -1117,6 +1117,53 @@ with tab_dash:
             </div>
             """, unsafe_allow_html=True)
 
+        if "metrics" in res:
+            metrics = res["metrics"]
+            with st.expander("⏱️ View EOC Multi-Agent Parallel Execution Latencies", expanded=False):
+                st.markdown(f"""
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; font-size: 0.9rem; margin-top: 10px;">
+                    <div class="card" style="padding: 10px; border-left: 3px solid #4299e1; margin-bottom: 0px;">
+                        <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Location Agent</span>
+                        <b>{metrics.get('location_time', 0.0):.3f}s</b>
+                    </div>
+                    <div class="card" style="padding: 10px; border-left: 3px solid #48bb78; margin-bottom: 0px;">
+                        <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Weather Agent</span>
+                        <b>{metrics.get('weather_time', 0.0):.3f}s</b>
+                    </div>
+                    <div class="card" style="padding: 10px; border-left: 3px solid #ecc94b; margin-bottom: 0px;">
+                        <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">News Agent</span>
+                        <b>{metrics.get('news_time', 0.0):.3f}s</b>
+                    </div>
+                    <div class="card" style="padding: 10px; border-left: 3px solid #ed8936; margin-bottom: 0px;">
+                        <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Resource Agent</span>
+                        <b>{metrics.get('resource_time', 0.0):.3f}s</b>
+                    </div>
+                    <div class="card" style="padding: 10px; border-left: 3px solid #f56565; margin-bottom: 0px;">
+                        <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Risk Agent</span>
+                        <b>{metrics.get('risk_time', 0.0):.3f}s</b>
+                    </div>
+                    <div class="card" style="padding: 10px; border-left: 3px solid #9f7aea; margin-bottom: 0px;">
+                        <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Planner Agent</span>
+                        <b>{metrics.get('planner_time', 0.0):.3f}s</b>
+                    </div>
+                    <div class="card" style="padding: 10px; border-left: 3px solid #ff4b4b; margin-bottom: 0px;">
+                        <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Alert Agent</span>
+                        <b>{metrics.get('alert_time', 0.0):.3f}s</b>
+                    </div>
+                    <div class="card" style="padding: 10px; border-left: 3px solid #718096; margin-bottom: 0px;">
+                        <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Contacts Agent</span>
+                        <b>{metrics.get('contacts_time', 0.0):.3f}s</b>
+                    </div>
+                    <div class="card" style="padding: 10px; border-left: 3px solid #319795; margin-bottom: 0px;">
+                        <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Safety Agent</span>
+                        <b>{metrics.get('safety_time', 0.0):.3f}s</b>
+                    </div>
+                </div>
+                <div style="margin-top: 15px; text-align: right; font-weight: 700; color: #48bb78; font-size: 1rem;">
+                    🚀 Parallel Engine Total Orchestration Latency: {metrics.get('total_time', 0.0):.3f} seconds
+                </div>
+                """, unsafe_allow_html=True)
+
         # --- THREAT THERMOMETER VISUAL ---
         thermometer_width = min(max(int(risk["risk_score"] * 10), 5), 100)
         st.markdown(f"""
