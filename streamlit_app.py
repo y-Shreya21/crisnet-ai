@@ -88,8 +88,55 @@ gps_lon = st.query_params.get("lon")
 gps_acc = st.query_params.get("acc", "15.0")
 geo_error = st.query_params.get("geo_error")
 
+def get_ip_geolocation():
+    """
+    Fetches the user's location based on their IP address.
+    Bypasses browser GPS block or non-HTTPS restrictions.
+    """
+    import requests
+    import sys
+    from Tools.retry_helper import execute_with_retry
+    
+    url = "https://ipapi.co/json/"
+    def _fetch():
+        res = requests.get(url, timeout=5)
+        res.raise_for_status()
+        return res
+        
+    try:
+        response = execute_with_retry(_fetch, retries=2, initial_delay=1.0)
+        data = response.json()
+        if "error" not in data:
+            return {
+                "latitude": float(data.get("latitude")),
+                "longitude": float(data.get("longitude")),
+                "city": data.get("city", "Delhi"),
+                "state": data.get("region", "Delhi"),
+                "country": data.get("country_name", "India"),
+                "postal_code": data.get("postal", "110001"),
+                "timezone": data.get("timezone", "Asia/Kolkata"),
+                "district": data.get("city", "Delhi")
+            }
+    except Exception as e:
+        print(f"⚠️ Warning (IP Geolocation): {e}", file=sys.stderr)
+        
+    # Standard fallback center of operations
+    return {
+        "latitude": 28.7041,
+        "longitude": 77.1025,
+        "city": "New Delhi",
+        "state": "Delhi",
+        "country": "India",
+        "postal_code": "110001",
+        "timezone": "Asia/Kolkata",
+        "district": "Delhi"
+    }
+
 resolved_from_gps = False
 gps_location_details = None
+
+if "ip_gps_resolved" not in st.session_state:
+    st.session_state["ip_gps_resolved"] = False
 
 if gps_lat and gps_lon:
     try:
@@ -97,13 +144,30 @@ if gps_lat and gps_lon:
         provider = get_geocoding_provider()
         gps_location_details = provider.reverse_geocode(float(gps_lat), float(gps_lon))
         resolved_from_gps = True
-        
-        # Populate search field automatically if empty
-        if not st.session_state["location_input"]:
-            st.session_state["location_input"] = gps_location_details["location"]
-            
+        st.session_state["location_input"] = gps_location_details["location"]
     except Exception as e:
         pass
+
+# Fallback to IP Geolocation if browser GPS is blocked, denied, or not yet resolved
+if not resolved_from_gps and not st.session_state["ip_gps_resolved"]:
+    ip_loc = get_ip_geolocation()
+    if ip_loc:
+        st.session_state["ip_gps_resolved"] = True
+        st.session_state["location_input"] = f"{ip_loc['city']}, {ip_loc['country']}"
+        gps_lat = str(ip_loc["latitude"])
+        gps_lon = str(ip_loc["longitude"])
+        gps_acc = "IP Geolocation"
+        
+        gps_location_details = {
+            "location": f"{ip_loc['city']}, {ip_loc['country']}",
+            "country": ip_loc["country"],
+            "city": ip_loc["city"],
+            "district": ip_loc["district"],
+            "state": ip_loc["state"],
+            "postal_code": ip_loc["postal_code"],
+            "timezone": ip_loc["timezone"]
+        }
+        resolved_from_gps = True
 
 # Auto-execute analysis on coordinates detected
 if resolved_from_gps and gps_location_details and st.session_state["disaster_result"] is None:
@@ -818,7 +882,7 @@ with tab_dash:
     </div>
     """, unsafe_allow_html=True)
     
-    col_input, col_mic, col_btn_an, col_btn_gps = st.columns([4, 1.2, 2, 2])
+    col_input, col_btn_an, col_btn_gps = st.columns([5, 2, 2])
     with col_input:
         location_input = st.text_input(
             label="Location Name Input",
@@ -826,45 +890,128 @@ with tab_dash:
             label_visibility="collapsed",
             placeholder="Search Target: e.g. Assam, Delhi, Mumbai, California, Tokyo"
         )
-    with col_mic:
-        st.markdown("""
-        <button id="voice_mic_btn" onclick="startVoiceRecognition()" style="width: 100%; height: 38px; background: rgba(255, 75, 75, 0.1); color: #ff4b4b; border: 1px solid rgba(255, 75, 75, 0.3); border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; font-weight: 600; font-family: 'Outfit', sans-serif;">
-            🎙️ Voice Mic
-        </button>
-        <script>
-        function startVoiceRecognition() {
-            let activeWindow = window;
-            let SpeechRecognition = activeWindow.SpeechRecognition || activeWindow.webkitSpeechRecognition;
-            
-            if (!SpeechRecognition) {
-                try {
-                    if (window.parent) {
-                        activeWindow = window.parent;
-                        SpeechRecognition = activeWindow.SpeechRecognition || activeWindow.webkitSpeechRecognition;
-                    }
-                } catch (e) {
-                    console.log("Bypassing parent SpeechRecognition access.");
+    with col_btn_an:
+        analyze_clicked = st.button("⚡ Analyze EOC Coordinates", use_container_width=True)
+    with col_btn_gps:
+        gps_clicked = st.button("📡 Detect My Location", use_container_width=True)
+        if gps_clicked:
+            st.session_state["detect_gps"] = True
+            st.rerun()
+
+    # Upgraded voice search console card
+    st.markdown("""
+    <div class="card" style="padding: 20px; margin-top: 15px; border-left: 4px solid #ff4b4b;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.25rem;">🎙️</span>
+                <span style="font-weight: 700; color: var(--header-color); font-size: 1.05rem;">Voice Command Receiver Console</span>
+            </div>
+            <span id="voice_status_badge" style="font-size: 0.75rem; font-weight: 700; color: #a0aec0; background: rgba(255,255,255,0.06); padding: 3px 10px; border-radius: 20px; text-transform: uppercase;">
+                Standby
+            </span>
+        </div>
+        <div style="display: flex; gap: 18px; align-items: center; flex-wrap: wrap;">
+            <button id="voice_mic_btn" onclick="startVoiceRecognition()" style="height: 48px; width: 48px; border-radius: 50%; background: rgba(255, 75, 75, 0.1); color: #ff4b4b; border: 1px solid rgba(255, 75, 75, 0.35); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; transition: all 0.2s ease; box-shadow: 0 0 10px rgba(255,75,75,0.1);">
+                🎙️
+            </button>
+            <div style="flex: 1; min-width: 200px;">
+                <div id="voice_status_text" style="font-size: 0.95rem; color: #cbd5e0; font-weight: 500;">
+                    Microphone sensor node initialized. Click button to transmit verbal parameters.
+                </div>
+                <div id="voice_error_text" style="font-size: 0.85rem; color: #ff4b4b; margin-top: 5px; font-weight: 600; display: none;"></div>
+            </div>
+            <!-- Pulse bars -->
+            <div id="voice_pulse_ring" style="display: none; align-items: center; gap: 4px; height: 30px;">
+                <div class="voice-bar bar1" style="width: 3px; height: 10px; background: #ff4b4b; border-radius: 3px; animation: voice-pulse 0.8s ease-in-out infinite;"></div>
+                <div class="voice-bar bar2" style="width: 3px; height: 18px; background: #ff4b4b; border-radius: 3px; animation: voice-pulse 0.8s ease-in-out infinite; animation-delay: 0.2s;"></div>
+                <div class="voice-bar bar3" style="width: 3px; height: 12px; background: #ff4b4b; border-radius: 3px; animation: voice-pulse 0.8s ease-in-out infinite; animation-delay: 0.4s;"></div>
+                <div class="voice-bar bar4" style="width: 3px; height: 6px; background: #ff4b4b; border-radius: 3px; animation: voice-pulse 0.8s ease-in-out infinite; animation-delay: 0.6s;"></div>
+            </div>
+        </div>
+    </div>
+    <style>
+    @keyframes voice-pulse {
+        0%, 100% { transform: scaleY(0.4); }
+        50% { transform: scaleY(1.4); }
+    }
+    </style>
+    <script>
+    let silenceTimeout = null;
+    let recognition = null;
+    
+    function startVoiceRecognition() {
+        let activeWindow = window;
+        let SpeechRecognition = activeWindow.SpeechRecognition || activeWindow.webkitSpeechRecognition;
+        
+        const badge = document.getElementById("voice_status_badge");
+        const statusText = document.getElementById("voice_status_text");
+        const errorText = document.getElementById("voice_error_text");
+        const pulse = document.getElementById("voice_pulse_ring");
+        const btn = document.getElementById("voice_mic_btn");
+        
+        errorText.style.display = "none";
+        
+        if (!SpeechRecognition) {
+            try {
+                if (window.parent) {
+                    activeWindow = window.parent;
+                    SpeechRecognition = activeWindow.SpeechRecognition || activeWindow.webkitSpeechRecognition;
                 }
+            } catch (e) {
+                console.log("Could not access parent SpeechRecognition.");
             }
-            
-            if (!SpeechRecognition) {
-                alert("Web Speech API is not supported in this browser. Please use Google Chrome or Safari.");
-                return;
-            }
-            
-            const recognition = new SpeechRecognition();
+        }
+        
+        if (!SpeechRecognition) {
+            badge.innerHTML = "Unsupported";
+            badge.style.color = "#ff4b4b";
+            badge.style.background = "rgba(255,75,75,0.1)";
+            statusText.innerHTML = "Speech recognition is unsupported on this browser. Try Google Chrome or Safari.";
+            return;
+        }
+        
+        try {
+            recognition = new SpeechRecognition();
             recognition.lang = 'en-US';
             recognition.interimResults = false;
             recognition.maxAlternatives = 1;
             
-            const btn = document.getElementById("voice_mic_btn");
-            btn.innerHTML = "🔴 Listening...";
-            btn.style.background = "rgba(255, 0, 0, 0.2)";
-            btn.style.color = "#ff4b4b";
+            recognition.onstart = function() {
+                badge.innerHTML = "Listening...";
+                badge.style.color = "#4299e1";
+                badge.style.background = "rgba(66,153,225,0.15)";
+                statusText.innerHTML = "Speak location query into microphone...";
+                pulse.style.display = "flex";
+                btn.style.background = "rgba(255, 75, 75, 0.25)";
+                btn.style.boxShadow = "0 0 15px rgba(255,75,75,0.4)";
+                
+                if (silenceTimeout) clearTimeout(silenceTimeout);
+                silenceTimeout = setTimeout(() => {
+                    recognition.stop();
+                    badge.innerHTML = "Timeout";
+                    badge.style.color = "#ecc94b";
+                    statusText.innerHTML = "Silence timeout. No vocal query detected.";
+                    pulse.style.display = "none";
+                    btn.style.background = "rgba(255, 75, 75, 0.1)";
+                    btn.style.boxShadow = "none";
+                }, 7000);
+            };
+            
+            recognition.onspeechstart = function() {
+                clearTimeout(silenceTimeout);
+                badge.innerHTML = "Recognizing...";
+                badge.style.color = "#ecc94b";
+                statusText.innerHTML = "Decoding vocal frequencies...";
+            };
             
             recognition.onresult = function(event) {
+                clearTimeout(silenceTimeout);
                 const transcript = event.results[0][0].transcript;
-                console.log("Voice transcribed text: " + transcript);
+                console.log("Transcribed speech: " + transcript);
+                
+                badge.innerHTML = "Processing...";
+                badge.style.color = "#48bb78";
+                statusText.innerHTML = "Transcribed target: '" + transcript + "'. Initializing routing...";
                 
                 let doc = document;
                 try {
@@ -875,7 +1022,6 @@ with tab_dash:
                     console.log("Bypassing parent doc access.");
                 }
                 
-                // Locate search input element
                 const inputs = doc.querySelectorAll('input');
                 let targetInput = null;
                 for (let inp of inputs) {
@@ -884,13 +1030,11 @@ with tab_dash:
                         break;
                     }
                 }
-                
                 if (!targetInput && inputs.length > 0) {
                     targetInput = inputs[0];
                 }
                 
                 if (targetInput) {
-                    // Set value bypassing React setter override
                     try {
                         const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
                         if (setter) {
@@ -901,12 +1045,15 @@ with tab_dash:
                     } catch (err) {
                         targetInput.value = transcript;
                     }
-                    
-                    // Dispatch input event to sync Streamlit React state
                     targetInput.dispatchEvent(new Event('input', { bubbles: true }));
                     
-                    // Automatically click the search button after a small delay
                     setTimeout(() => {
+                        badge.innerHTML = "Completed";
+                        badge.style.color = "#48bb78";
+                        pulse.style.display = "none";
+                        btn.style.background = "rgba(255, 75, 75, 0.1)";
+                        btn.style.boxShadow = "none";
+                        
                         const buttons = doc.querySelectorAll('button');
                         for (let b of buttons) {
                             if (b.innerText && (b.innerText.includes("Analyze EOC Coordinates") || b.innerText.includes("Analyze EOC"))) {
@@ -914,38 +1061,49 @@ with tab_dash:
                                 break;
                             }
                         }
-                    }, 600);
+                    }, 800);
                 }
             };
             
-            recognition.onerror = function(e) {
-                console.log("Voice error: " + e.error);
-                btn.innerHTML = "🎙️ Voice Mic";
+            recognition.onerror = function(event) {
+                clearTimeout(silenceTimeout);
+                pulse.style.display = "none";
                 btn.style.background = "rgba(255, 75, 75, 0.1)";
+                btn.style.boxShadow = "none";
+                
+                badge.innerHTML = "Error";
+                badge.style.color = "#ff4b4b";
+                badge.style.background = "rgba(255,75,75,0.15)";
+                
+                let msg = "Microphone sensor error: " + event.error;
+                if (event.error === 'not-allowed') {
+                    msg = "Permission Denied. Enable microphone permissions in browser settings.";
+                } else if (event.error === 'no-speech') {
+                    msg = "No vocal frequency detected. Click mic to retry.";
+                }
+                errorText.innerHTML = "⚠️ " + msg;
+                errorText.style.display = "block";
+                statusText.innerHTML = "Sensor pipeline offline. Press microphone to restart.";
             };
             
             recognition.onend = function() {
-                btn.innerHTML = "🎙️ Voice Mic";
+                clearTimeout(silenceTimeout);
+                pulse.style.display = "none";
                 btn.style.background = "rgba(255, 75, 75, 0.1)";
+                btn.style.boxShadow = "none";
             };
             
-            try {
-                recognition.start();
-            } catch (err) {
-                console.log("Recognition start failed: " + err);
-                btn.innerHTML = "🎙️ Voice Mic";
-                btn.style.background = "rgba(255, 75, 75, 0.1)";
-            }
+            recognition.start();
+            
+        } catch (err) {
+            badge.innerHTML = "Offline";
+            statusText.innerHTML = "Vocal decoder offline. Click mic to restart.";
+            errorText.innerHTML = "⚠️ Interface Init Error: " + err.message;
+            errorText.style.display = "block";
         }
-        </script>
-        """, unsafe_allow_html=True)
-    with col_btn_an:
-        analyze_clicked = st.button("⚡ Analyze EOC Coordinates", use_container_width=True)
-    with col_btn_gps:
-        gps_clicked = st.button("📡 Detect My Location", use_container_width=True)
-        if gps_clicked:
-            st.session_state["detect_gps"] = True
-            st.rerun()
+    }
+    </script>
+    """, unsafe_allow_html=True)
 
     # POPULAR SEARCH SUGGESTIONS BAR
     st.markdown("""
@@ -961,10 +1119,18 @@ with tab_dash:
 
     # EOC Location Card Widget
     if resolved_from_gps and gps_location_details:
+        try:
+            acc_str = f"±{float(gps_acc):.1f} meters"
+        except ValueError:
+            acc_str = str(gps_acc)
+            
+        status_label = "🟢 LIVE GPS READY" if gps_acc != "IP Geolocation" else "🟢 IP TELEMETRY ACTIVE"
+        source_label = "📡 Current GPS Location Mapped" if gps_acc != "IP Geolocation" else "📡 Current IP Location Mapped"
+
         st.markdown(f"""
         <div class="card glow-accent-green" style="padding: 20px; margin-bottom: 20px;">
             <h4 style="margin-top: 0; color: #48bb78; display: flex; align-items: center; gap: 8px;">
-                📡 Current GPS Location Mapped
+                {source_label}
             </h4>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; font-size: 0.95rem; margin-top: 15px; margin-bottom: 15px;">
                 <div>
@@ -977,11 +1143,11 @@ with tab_dash:
                 </div>
                 <div>
                     <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Accuracy Radius</span>
-                    <span style="color: var(--header-color);">{float(gps_acc):.1f} meters</span>
+                    <span style="color: var(--header-color);">{acc_str}</span>
                 </div>
                 <div>
                     <span style="color: #a0aec0; display: block; font-size: 0.75rem; text-transform: uppercase;">Signal Status</span>
-                    <b style="color: #48bb78;">🟢 LIVE GPS READY</b>
+                    <b style="color: #48bb78;">{status_label}</b>
                 </div>
             </div>
         </div>
@@ -1508,9 +1674,48 @@ with tab_map:
         </div>
         """, unsafe_allow_html=True)
 
+        NDRF_BATTALIONS = [
+            {"name": "NDRF 1st Bn (Guwahati, Assam)", "lat": 26.1158, "lon": 91.7086},
+            {"name": "NDRF 2nd Bn (Haringhata, West Bengal)", "lat": 22.9592, "lon": 88.5654},
+            {"name": "NDRF 3rd Bn (Cuttack, Odisha)", "lat": 20.4625, "lon": 85.8830},
+            {"name": "NDRF 4th Bn (Arakkonam, Tamil Nadu)", "lat": 13.0792, "lon": 79.6687},
+            {"name": "NDRF 5th Bn (Pune, Maharashtra)", "lat": 18.5204, "lon": 73.8567},
+            {"name": "NDRF 6th Bn (Vadodara, Gujarat)", "lat": 22.3072, "lon": 73.1812},
+            {"name": "NDRF 7th Bn (Bhatinda, Punjab)", "lat": 30.2110, "lon": 74.9455},
+            {"name": "NDRF 8th Bn (Ghaziabad, UP)", "lat": 28.6692, "lon": 77.4538},
+            {"name": "NDRF 9th Bn (Patna, Bihar)", "lat": 25.5941, "lon": 85.1376},
+            {"name": "NDRF 10th Bn (Guntur, AP)", "lat": 16.3067, "lon": 80.4365},
+            {"name": "NDRF 11th Bn (Varanasi, UP)", "lat": 25.3176, "lon": 82.9739},
+            {"name": "NDRF 12th Bn (Itanagar, Arunachal)", "lat": 27.0844, "lon": 93.6053},
+            {"name": "NDRF 13th Bn (Srinagar, J&K)", "lat": 34.0837, "lon": 74.7973},
+            {"name": "NDRF 14th Bn (Bangalore, Karnataka)", "lat": 13.1009, "lon": 77.5963},
+            {"name": "NDRF 15th Bn (Jhansi, UP)", "lat": 25.4484, "lon": 78.5685},
+            {"name": "NDRF 16th Bn (Siliguri, West Bengal)", "lat": 26.7271, "lon": 88.3953}
+        ]
+
+        def find_nearest_ndrf_local(lat, lon):
+            import math
+            nearest = None
+            min_dist = float('inf')
+            for bn in NDRF_BATTALIONS:
+                dlat = math.radians(bn["lat"] - lat)
+                dlon = math.radians(bn["lon"] - lon)
+                a = math.sin(dlat/2)**2 + math.cos(math.radians(lat)) * math.cos(math.radians(bn["lat"])) * math.sin(dlon/2)**2
+                c = 2 * math.asin(math.sqrt(a))
+                dist = 6371 * c
+                if dist < min_dist:
+                    min_dist = dist
+                    nearest = {
+                        "name": bn["name"],
+                        "lat": bn["lat"],
+                        "lon": bn["lon"],
+                        "distance_km": dist
+                    }
+            return nearest
+
         m = folium.Map(
             location=[loc_res["latitude"], loc_res["longitude"]],
-            zoom_start=11,
+            zoom_start=12,  # Close zoom into user's city
             tiles="CartoDB dark_matter"
         )
         
@@ -1529,26 +1734,58 @@ with tab_map:
             fill_opacity=0.08,
             popup="🚨 5km Tactical EOC Operations Boundary"
         ).add_to(m)
+
+        # Find nearest assets of each type
+        nearest_assets = {}
+        for r_node in r_list:
+            rtype = r_node["type"]
+            import math
+            dlat = math.radians(r_node["lat"] - loc_res["latitude"])
+            dlon = math.radians(r_node["lon"] - loc_res["longitude"])
+            a = math.sin(dlat/2)**2 + math.cos(math.radians(loc_res["latitude"])) * math.cos(math.radians(r_node["lat"])) * math.sin(dlon/2)**2
+            c = 2 * math.asin(math.sqrt(a))
+            dist = 6371 * c
+            
+            if rtype not in nearest_assets or dist < nearest_assets[rtype]["dist"]:
+                nearest_assets[rtype] = {
+                    "node": r_node,
+                    "dist": dist
+                }
         
         for res_node in r_list:
             rtype = res_node["type"]
+            is_nearest = (nearest_assets.get(rtype, {}).get("node") == res_node)
+            
             color = "purple"
             icon = "heart"
             if rtype == "hospital":
-                color = "blue"; icon = "plus"
+                color = "darkblue" if is_nearest else "blue"; icon = "plus"
             elif rtype == "shelter":
-                color = "green"; icon = "home"
+                color = "darkgreen" if is_nearest else "green"; icon = "home"
             elif rtype == "fire_station":
-                color = "orange"; icon = "fire"
+                color = "darkred" if is_nearest else "orange"; icon = "fire"
             elif rtype == "police":
                 color = "cadetblue"; icon = "eye-open"
                 
+            popup_text = f"<b>{res_node['name']}</b><br>Type: {rtype.upper()}<br>Addr: {res_node['address']}"
+            if is_nearest:
+                popup_text = f"⭐ <b>NEAREST {rtype.upper()}</b><br>" + popup_text
+                
             folium.Marker(
                 [res_node["lat"], res_node["lon"]],
-                popup=f"<b>{res_node['name']}</b><br>Type: {rtype.upper()}<br>Addr: {res_node['address']}",
+                popup=popup_text,
                 icon=folium.Icon(color=color, icon=icon)
             ).add_to(m)
-        
+
+        # Highlight nearest NDRF base
+        ndrf_base = find_nearest_ndrf_local(loc_res["latitude"], loc_res["longitude"])
+        if ndrf_base:
+            folium.Marker(
+                [ndrf_base["lat"], ndrf_base["lon"]],
+                popup=f"⭐ <b>Nearest NDRF Battalion:</b> {ndrf_base['name']}<br>Distance: {ndrf_base['distance_km']:.1f} km away",
+                icon=folium.Icon(color="darkpurple", icon="star")
+            ).add_to(m)
+            
         st_folium(m, height=500, use_container_width=True, returned_objects=[])
 
         if r_list:
