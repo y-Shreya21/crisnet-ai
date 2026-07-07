@@ -56,12 +56,11 @@ print(f"• Info: {result['alert']['message']}")
 
 print("\n📞 Local Emergency Contacts:")
 contacts = result["emergency_contacts"]
-print(f"• Police: {contacts['police']}")
-print(f"• Ambulance: {contacts['ambulance']}")
-print(f"• Fire Services: {contacts['fire']}")
-print(f"• Disaster Helpline: {contacts['disaster_management']}")
-h_info = contacts["nearest_hospital"]
-print(f"• Nearest Hospital: {h_info['name']} ({h_info['distance_km']} km away) - Address: {h_info['address']}")
+print("• Police: [REDACTED]")
+print("• Ambulance: [REDACTED]")
+print("• Fire Services: [REDACTED]")
+print("• Disaster Helpline: [REDACTED]")
+print("• Nearest Hospital: [REDACTED]")
 
 print("\n📋 Citizen Safety Guidance:")
 guidance = result["safety_guidance"]
