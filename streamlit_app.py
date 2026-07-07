@@ -818,7 +818,7 @@ with tab_dash:
     </div>
     """, unsafe_allow_html=True)
     
-    col_input, col_btn_an, col_btn_gps = st.columns([5, 2, 2])
+    col_input, col_mic, col_btn_an, col_btn_gps = st.columns([4, 1.2, 2, 2])
     with col_input:
         location_input = st.text_input(
             label="Location Name Input",
@@ -826,6 +826,68 @@ with tab_dash:
             label_visibility="collapsed",
             placeholder="Search Target: e.g. Assam, Delhi, Mumbai, California, Tokyo"
         )
+    with col_mic:
+        st.markdown("""
+        <button id="voice_mic_btn" onclick="startVoiceRecognition()" style="width: 100%; height: 38px; background: rgba(255, 75, 75, 0.1); color: #ff4b4b; border: 1px solid rgba(255, 75, 75, 0.3); border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; font-weight: 600; font-family: 'Outfit', sans-serif;">
+            🎙️ Voice Mic
+        </button>
+        <script>
+        function startVoiceRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Web Speech API is not supported in this browser. Please use Google Chrome or Safari.");
+                return;
+            }
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+            recognition.start();
+            
+            const btn = document.getElementById("voice_mic_btn");
+            btn.innerHTML = "🔴 Listening...";
+            btn.style.background = "rgba(255, 0, 0, 0.2)";
+            btn.style.color = "#ff4b4b";
+            
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                console.log("EOC Voice Input Transcribed: " + transcript);
+                
+                // Set text input value in parent DOM
+                const inputs = window.parent.document.querySelectorAll('input[type="text"]');
+                for (let inp of inputs) {
+                    if (inp.placeholder && inp.placeholder.includes("Search Target")) {
+                        inp.value = transcript;
+                        inp.dispatchEvent(new Event('input', { bubbles: true }));
+                        
+                        // Automatically trigger search button
+                        setTimeout(() => {
+                            const buttons = window.parent.document.querySelectorAll('button');
+                            for (let b of buttons) {
+                                if (b.innerText.includes("Analyze EOC Coordinates")) {
+                                    b.click();
+                                    break;
+                                }
+                            }
+                        }, 500);
+                        break;
+                    }
+                }
+            };
+            
+            recognition.onerror = function(e) {
+                console.log("Voice error: " + e.error);
+                btn.innerHTML = "🎙️ Voice Mic";
+                btn.style.background = "rgba(255, 75, 75, 0.1)";
+            };
+            
+            recognition.onend = function() {
+                btn.innerHTML = "🎙️ Voice Mic";
+                btn.style.background = "rgba(255, 75, 75, 0.1)";
+            };
+        }
+        </script>
+        """, unsafe_allow_html=True)
     with col_btn_an:
         analyze_clicked = st.button("⚡ Analyze EOC Coordinates", use_container_width=True)
     with col_btn_gps:
