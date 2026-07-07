@@ -579,8 +579,10 @@ if res:
     alert_color = res["alert"]["color"]
 
 # ----------------- 1. COMMAND CENTER HEADER -----------------
-cur_time_str = datetime.datetime.now().strftime("%I:%M %p")
-cur_date_str = datetime.datetime.now().strftime("%B %d, %Y")
+ist_tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+now_ist = datetime.datetime.now(ist_tz)
+cur_time_str = now_ist.strftime("%I:%M %p") + " IST"
+cur_date_str = now_ist.strftime("%B %d, %Y")
 
 st.markdown(f"""
 <div style="background: linear-gradient(90deg, rgba(16, 22, 34, 0.95) 0%, rgba(26, 36, 57, 0.95) 100%); padding: 20px 30px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 30px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); backdrop-filter: blur(12px);">
@@ -617,11 +619,11 @@ st.markdown(f"""
                     </div>
                 </div>
             </div>
-            <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 10px 16px; border-radius: 12px; display: flex; align-items: center; gap: 10px; min-width: 150px;">
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 10px 16px; border-radius: 12px; display: flex; align-items: center; gap: 10px; min-width: 240px;">
                 <span style="font-size: 1.25rem;">⏰</span>
                 <div>
                     <div style="font-size: 0.7rem; color: #a0aec0; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">EOC System Time</div>
-                    <div style="font-size: 0.95rem; font-weight: 700; color: #ffffff;">{cur_time_str}</div>
+                    <div style="font-size: 0.95rem; font-weight: 700; color: #ffffff;">{cur_time_str} &nbsp;|&nbsp; {cur_date_str}</div>
                 </div>
             </div>
         </div>
