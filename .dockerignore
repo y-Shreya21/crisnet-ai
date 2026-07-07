@@ -1,0 +1,28 @@
+# Ignore version control systems
+.git
+.github
+.gitignore
+
+# Ignore local configuration and secrets
+.env
+.env.example
+.streamlit/*.toml
+
+# Ignore virtual environments and cache compilation
+venv
+.venv
+env
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.ipynb_checkpoints
+
+# Ignore system metadata
+.DS_Store
+Thumbs.db
+*.log
+*.pdf
+*.md
+tests/
