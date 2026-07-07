@@ -1449,7 +1449,29 @@ with tab_map:
                 } for item in r_list])
                 st.dataframe(map_df, hide_index=True, use_container_width=True)
     else:
-        st.info("💡 Please search and analyze a location to render the EOC resource map.")
+        st.markdown("### Interactive Incident Resource Map (Standby Mode)")
+        st.markdown("""
+        <div style="background-color: var(--card-bg); padding: 12px 18px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 15px; font-size: 0.9rem; line-height: 1.5;">
+            <div style="font-weight: 600; color: var(--header-color); margin-bottom: 6px;">🛰️ EOC Global GIS Standby Feed</div>
+            No active threat region analyzed yet. Showing central emergency operations coordinates map. Use search bar to target specific areas.
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Center of India as operational standby coordinate
+        m_standby = folium.Map(
+            location=[20.5937, 78.9629],
+            zoom_start=5,
+            tiles="CartoDB dark_matter"
+        )
+        
+        # Drop a general radar station marker
+        folium.Marker(
+            [20.5937, 78.9629],
+            popup="📡 <b>EOC Core Telemetry Receiver Station</b>",
+            icon=folium.Icon(color="blue", icon="info-sign")
+        ).add_to(m_standby)
+        
+        st_folium(m_standby, height=500, use_container_width=True, returned_objects=[])
 
 # ----------------- TAB 3: RESOURCE INFRASTRUCTURE -----------------
 with tab_res:
