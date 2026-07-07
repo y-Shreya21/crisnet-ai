@@ -13,6 +13,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from Agents.coordinator import CoordinatorAgent
 from Agents.location_agent import LocationAgent
+import textwrap
 
 # 1. Custom CSS injection for rich, premium dark/light/system EOC Command aesthetics
 st.set_page_config(
@@ -899,7 +900,7 @@ with tab_dash:
             st.rerun()
 
     # Upgraded voice search console card
-    st.markdown("""
+    st.markdown(textwrap.dedent("""
     <div class="card" style="padding: 20px; margin-top: 15px; border-left: 4px solid #ff4b4b;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -1103,7 +1104,7 @@ with tab_dash:
         }
     }
     </script>
-    """, unsafe_allow_html=True)
+    """), unsafe_allow_html=True)
 
     # POPULAR SEARCH SUGGESTIONS BAR
     st.markdown("""
